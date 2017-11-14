@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 CURDIR=`pwd`
+ln -s $CURDIR/data work/data
 
 # Make ~/.keras be out managed dotkeras
 rm -rf ~/.keras
