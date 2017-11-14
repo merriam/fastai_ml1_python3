@@ -7,6 +7,6 @@ ln -s $CURDIR/data work/data
 rm -rf ~/.keras
 mkdir dot_keras
 ln -s dot_keras ~/.keras
-ln -s dot_keras/keras.json roebius_for_3
+ln -s dot_keras/keras.json roebius_for_3/keras.json.for_Theano
 
 
