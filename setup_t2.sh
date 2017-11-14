@@ -2,7 +2,8 @@
 # FastAI for Python 2.7
 # export imageId=ami-f8fd5998
 # Raw Ubuntu
-export imageId=ami-5502ca2d
+export imageId=ami-790ec601
+
 export vpcId=`aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --output text`
 aws ec2 modify-vpc-attribute --vpc-id $vpcId --enable-dns-support "{\"Value\":true}"
 aws ec2 modify-vpc-attribute --vpc-id $vpcId --enable-dns-hostnames "{\"Value\":true}"
