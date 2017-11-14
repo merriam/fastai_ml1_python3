@@ -1,0 +1,127 @@
+# History
+HISTSIZE=500000
+HISTFILESIZE=10000000
+HISTCONTROL=ignoredups:ignorespace
+shopt -s histappend
+
+
+export BASE_PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+export PATH=$BASE_PATH
+# export BASE_PATH=$PATH
+export CONDA_PATH="/home/ubuntu/anaconda2/bin"
+export CONDA_BIN="$CONDA_PATH/conda"
+export CONDA_ACTIVATE="source $CONDA_PATH/activate"
+export CONDA_DEACTIVATE="source $CONDA_PATH/deactivate"
+
+# prompt with ""~/dir   [conda: condabranch][git:git-branch*]\n$" and coloring
+$ [git-branch*]
+function conda_branch {
+  type $CONDA_BIN >/dev/null 2>&1 && $CONDA_BIN info --envs | grep \* | awk '{print $1;}' | grep -v '^root'
+}
+function conda_part {
+  echo "[conda:$(conda_branch)]" | grep -v "\[conda:\]"
+}
+function parse_git_dirty {
+  [[ $(git status 2> /dev/null | grep "nothing to commit" ) ]] || echo "*"
+}
+function parse_git_branch {
+  git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e "s/* \(.*\)/\1$(parse_git_dirty)/"
+}
+function git_part {
+  echo "[git:$(parse_git_branch)]" | grep -v "\[git:]"
+}
+function env_part {
+  echo "[env:$ENVIRONMENT]" | grep -v "\[env:]"
+}
+export PROMPT_COMMAND='PS1="\n\\[\033[38;5;161m\]\w\[$(tput sgr0)\]\[\033[38;5;15m\]  \[\033[38;5;2m\]$(env_part)\033[38;5;5m\]$(conda_part)\[$(tput sgr0)\]\[\033[38;5;14m\]$(git_part)\[$(tput sgr0)\]\n\[$(tput bold)\]\\$\[$(tput sgr0)\] "'
+
+
+# Add color
+alias ls="ls -GF $@"
+alias grep="grep --color=auto"
+alias egrep="egrep --color=auto"
+alias fgrep="fgrep --color=auto"
+
+# History/File alias set
+alias f='echo "
+   h = history of last 20 commands
+   hh <cmd> = find command in history
+   ick <symbol> = find symbol in current tree
+   fd <file1> <file2> = visual diff of files
+   ff <opt-word> = find files containing word in current tree
+   fw <opt-word> = find files modified in last week in current tree
+   tree = show directory tree from current directory
+"'
+alias h='history 20'
+alias hh='history | grep -i $*'
+alias ick='ack -i --pager="less -R -S -X"'
+alias fd='open -W -a Meld --args'
+ff() {
+  find . -name "*$1*" -print
+}
+fw() {
+  find . -name "*$1*" -mtime -7 | grep -v \.pyc | grep -v site-packages | grep -v \.DS_Store
+}
+alias tree="ls -R $@ | grep ':' | sed -e 's/://' -e 's/[^-][^\/]*\//--/g' -e 's/^/   /' -e 's/-/|/'"
+
+
+
+# Conda alias set
+alias c="echo \"
+   cls = list conda environments
+   con <name> = activate conda environment
+   coff = deactivate conda environment
+
+   conda create -n tensorflow python=3.6 anaconda tensorflow jupyter
+   conda remove --name tensorflow --all
+   echo \\\$CONDA_DEFAULT_ENV\""
+alias cls="$CONDA_BIN info --envs"
+alias con="$CONDA_ACTIVATE"
+alias coff="$CONDA_DEACTIVATE"
+
+# Git
+alias g='echo "
+   gmine = Difference between development and charles-dev branches
+   gdiff = Differences between development and charles-dev branches
+   g1diff <file> = Differences between branched for one file
+   gpulldev = pull development from cbmx
+   gmergedev = merge development into charles-dev
+   gc = switch to platform/charles-dev
+   gd = switch to platform/dev
+"'
+alias gmine='git diff --name-status development..charles-dev'
+alias gdiff='git diff development..charles-dev'
+alias g1diff='git diff development..charles-dev -- '
+alias gpulldev='git checkout development && git pull cbmx development'
+alias gmergedev='git checkout charles-dev && git merge development'
+alias gc='cd ~/p/platform && git checkout charles-dev'
+alias gd='cd ~/p/platform && git checkout development'
+
+# Environments (meaning, paths and such)
+alias e='echo "
+Current Environment: $ENVIRONMENT
+Current Path: $PATH
+Current Conda Env: $CONDA_PREFIX
+
+   eb = basic path, conda off
+   ed = (Dev) /opt/CBMX => dev and in path, conda enviornment off
+   en = basic path, but in nike conda environment
+   ep = (Post) /opt/CBMX => post and in path, conda environment off
+   ex = sysx basic path, conda environment
+"'
+alias eb='export ENVIRONMENT=basic; export PATH=$BASE_PATH; $CONDA_DEACTIVATE; echo "Current Environment: $ENVIRONMENT"'
+alias ed='export CBMXVER=`ls -la /opt/dev | sed -e "s/.*.dev.//"`; export ENVIRONMENT="cbmx dev-$CBMXVER"; ln -sfh /opt/dev /opt/CBMX; export PATH=/opt/CBMX/bin:$BASE_PATH; $CONDA_DEACTIVATE; echo "Current Environment: $ENVIRONMENT"'
+alias en='export ENVIRONMENT=nike; export PATH=$BASE_PATH;  $CONDA_ACTIVATE nike; cd ~/p/nike; echo "Current Environment: $ENVIRONMENT"'
+alias ex='export ENVIRONMENT=sysx; export PATH=$BASE_PATH; $CONDA_ACTIVATE sysx; cd ~/p/platform; echo "Current Environment: $ENVIRONMENT"'
+alias ep='export CBMXVER=`ls -la /opt/dev | sed -e "s/.*.dev.//"`; export ENVIRONMENT="cbmx post-$CBMXVER"; ln -sfh /opt/post /opt/CBMX; export PATH=/opt/CBMX/bin:$BASE_PATH; $CONDA_DEACTIVATE; echo "Current Environment: $ENVIRONMENT"'
+
+# Jump to directory, for laziness happens
+alias j='echo "
+   Jump to:
+   jh = ~
+   jw = fastai/work
+   jf = fastai
+ "'
+ alias jf='cd ~/fast3'
+ alias jw='cd ~/fast3/work'
+ alias jh='cd ~'
