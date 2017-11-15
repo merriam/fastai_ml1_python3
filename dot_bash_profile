@@ -7,6 +7,8 @@ export PROMPT_COMMAND="history -a; history -n;$PROMPT_COMMAND"
 # history -a = append new history lines.
 # history -n = append history lines not already read.
 
+
+
 export PLATFORM="unknown"
 if [[ `uname` == "Darwin" ]]; then
    export PLATFORM="osx"
@@ -19,7 +21,10 @@ if [[ $PLATFORM == "osx" ]]; then
   export CONDA_PATH="/Users/cmerriam/l/miniconda3/bin"
 else
   export BASE_PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"
-  export CONDA_PATH="/home/ubuntu/anaconda2/bin"
+  export CONDA_PATH="/home/ubuntu/anaconda3/bin"
+  # checkwinsize updates LINES and COLUMNS on each command
+  shopt -s checkwinsize
+
 fi
 export PATH=$BASE_PATH
 
@@ -28,33 +33,49 @@ export CONDA_BIN="$CONDA_PATH/conda"
 export CONDA_ACTIVATE="source $CONDA_PATH/activate"
 export CONDA_DEACTIVATE="source $CONDA_PATH/deactivate"
 
-# prompt with ""~/dir [env:envname][conda:condabranch][git:git-branch*]\n$" and coloring
-function conda_branch {
-  type $CONDA_BIN >/dev/null 2>&1 && $CONDA_BIN info --envs | grep \* | awk '{print $1;}' | grep -v '^root'
+
+function prompt_command() {
+    if [ $? -eq 0 ]; then # set an error string for the prompt, if applicable
+        ERR_PROMPT=""
+    else
+        ERR_PROMPT='\n->($?)'
+    fi
+    # prompt with ""~/dir [host][env:envname][conda:condabranch][git:git-branch*]\n$" and coloring
+    function host_part {
+      if [[ "$PLATFORM" != "osx" ]]; then
+         echo "[on:\\h]"
+      fi
+    }
+    function conda_branch {
+      type $CONDA_BIN >/dev/null 2>&1 && $CONDA_BIN info --envs | grep \* | awk '{print $1;}' | grep -v '^root'
+    }
+    function conda_part {
+      echo "[conda:$(conda_branch)]" | grep -v "\[conda:\]"
+    }
+    function parse_git_dirty {
+      [[ $(git status 2> /dev/null | grep "nothing to commit" ) ]] || echo "*"
+    }
+    function parse_git_branch {
+      git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e "s/* \(.*\)/\1$(parse_git_dirty)/"
+    }
+    function git_part {
+      echo "[git:$(parse_git_branch)]" | grep -v "\[git:]"
+    }
+    function env_part {
+      echo "[env:$ENVIRONMENT]" | grep -v "\[env:]"
+    }
+    OFF="\[$(tput sgr0)\]"
+    RED="\\[\033[38;5;161m\]"
+    GREEN="\[\033[38;5;15m\]\[\033[38;5;2m\]"
+    PURPLE="\033[38;5;5m\]"
+    CYAN="\\[\033[38;5;14m\]"
+    BOLD="\\[$(tput bold)\]"
+    ORANGE="\[\033[38;5;202m\]"
+    export PS1="$ERR_PROMPT\n$RED\w$OFF  ${ORANGE}$(host_part)${GREEN}$(env_part)$PURPLE$(conda_part)$OFF$CYAN$(git_part)$OFF\n$BOLD\\$ $OFF"
+    #export PROMPT_COMMAND='PS1="\n\\[\033[38;5;161m\]\w\[$(tput sgr0)\]\[\033[38;5;15m\]  \[\033[38;5;2m\]$(env_part)\033[38;5;5m\]$(conda_part)\[$(tput sgr0)\]\[\033[38;5;14m\]$(git_part)\[$(tput sgr0)\]\n\[$(tput bold)\]\\$\[$(tput sgr0)\] "'
 }
-function conda_part {
-  echo "[conda:$(conda_branch)]" | grep -v "\[conda:\]"
-}
-function parse_git_dirty {
-  [[ $(git status 2> /dev/null | grep "nothing to commit" ) ]] || echo "*"
-}
-function parse_git_branch {
-  git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e "s/* \(.*\)/\1$(parse_git_dirty)/"
-}
-function git_part {
-  echo "[git:$(parse_git_branch)]" | grep -v "\[git:]"
-}
-function env_part {
-  echo "[env:$ENVIRONMENT]" | grep -v "\[env:]"
-}
-OFF="\[$(tput sgr0)\]"
-RED="\\[\033[38;5;161m\]"
-GREEN="\[\033[38;5;15m\]\[\033[38;5;2m\]"
-PURPLE="\033[38;5;5m\]"
-CYAN="\\[\033[38;5;14m\]"
-BOLD="\\[$(tput bold)\]"
-export PROMPT_COMMAND='${PROMPT_COMMAND};PS1="\n$RED\w$OFF  ${GREEN}$(env_part)$PURPLE$(conda_part)$OFF$CYAN$(git_part)$OFF\n$BOLD\\$ $OFF"'
-#export PROMPT_COMMAND='PS1="\n\\[\033[38;5;161m\]\w\[$(tput sgr0)\]\[\033[38;5;15m\]  \[\033[38;5;2m\]$(env_part)\033[38;5;5m\]$(conda_part)\[$(tput sgr0)\]\[\033[38;5;14m\]$(git_part)\[$(tput sgr0)\]\n\[$(tput bold)\]\\$\[$(tput sgr0)\] "'
+export PROMPT_COMMAND="prompt_command;$PROMPT_COMMAND"
+
 
 # Add color
 if [[ $PLATFORM == "osx" ]]; then
@@ -103,10 +124,35 @@ alias c="echo \"
 alias cls="$CONDA_BIN info --envs"
 alias con="$CONDA_ACTIVATE"
 alias coff="$CONDA_DEACTIVATE"
-alias cf="$CONDA_ACTIVATE fastai"
+alias cf="$CONDA_ACTIVATE fast3"
 
 ## These sections tend to be platform specific
 if [[ $PLATFORM == "osx" ]]; then
+
+    # AWS
+    export p2InstanceId=`aws ec2 describe-instances --filters "Name=instance-state-name,Values=stopped,Name=instance-type,Values=p2.xlarge" --query "Reservations[0].Instances[0].InstanceId"`
+    export t2InstanceId=`aws ec2 describe-instances --filters "Name=instance-state-name,Values=stopped,Name=instance-type,Values=t2.micro" --query "Reservations[0].Instances[0].InstanceId"`
+    export instanceIp=`aws ec2 describe-instances --filters "Name=instance-id,Values=$instanceId" --query "Reservations[0].Instances[0].PublicIpAddress"`
+    export instanceId=$t2InstanceId
+    export instanceIp=`aws ec2 describe-instances --filters "Name=instance-id,Values=$instanceId" --query "Reservations[0].Instances[0].PublicIpAddress"`
+    export instanceURL=`aws ec2 describe-instances --filters "Name=instance-id,Values=$instanceId" --query "Reservations[0].Instances[0].PublicDnsName"`
+
+    alias a='echo "
+    aup = All free instances up
+    adown = All instances down
+    allup = All instances up, TODO
+    ash = ssh to instance
+    acp <file> = copy file to instances
+
+    AWS status is TODO
+    AWS current instance ID:  $instanceURL ($instanceIp)
+    "'
+    # status should be what's up
+    alias aup='aws ec2 start-instances --instance-ids $instanceId && aws ec2 wait instance-running --instance-ids $instanceId && export instanceIp=`aws ec2 describe-instances --filters "Name=instance-id,Values=$instanceId" --query "Reservations[0].Instances[0].PublicIpAddress"`'
+    alias adown='aws ec2 stop-instances --instance-ids $instanceId'
+    alias ash='ssh -i ~/.ssh/aws-key.pem ubuntu@$instanceIp'
+    # alias acp='scp -i ~/.ssh/aws-key.pem $@ ubuntu@$instanceIp:'
+
     # Git
     alias g='echo "
        gmine = Difference between development and charles-dev branches
@@ -141,7 +187,7 @@ if [[ $PLATFORM == "osx" ]]; then
     alias ed='export CBMXVER=`ls -la /opt/dev | sed -e "s/.*.dev.//"`; export ENVIRONMENT="cbmx dev-$CBMXVER"; ln -sfh /opt/dev /opt/CBMX; export PATH=/opt/CBMX/bin:$BASE_PATH; $CONDA_DEACTIVATE; echo "Current Environment: $ENVIRONMENT"'
     alias en='export ENVIRONMENT=nike; export PATH=$BASE_PATH;  $CONDA_ACTIVATE nike; cd ~/p/nike; echo "Current Environment: $ENVIRONMENT"'
     alias ex='export ENVIRONMENT=sysx; export PATH=$BASE_PATH; $CONDA_ACTIVATE sysx; cd ~/p/platform; echo "Current Environment: $ENVIRONMENT"'
-    alias ep='export CBMXVER=`ls -la /opt/dev | sed -e "s/.*.dev.//"`; export ENVIRONMENT="cbmx post-$CBMXVER"; ln -sfh /opt/post /opt/CBMX; export PATH=/opt/CBMX/bin:$BASE_PATH; $CONDA_DEACTIVATE; echo "Current Environment: $ENVIRONMENT"'
+    # alias ep='export CBMXVER=`ls -la /opt/dev | sed -e "s/.*.dev.//"`; export ENVIRONMENT="cbmx post-$CBMXVER"; ln -sfh /opt/post /opt/CBMX; export PATH=/opt/CBMX/bin:$BASE_PATH; $CONDA_DEACTIVATE; echo "Current Environment: $ENVIRONMENT"'
 
     # Jump to directory, for laziness happens
     alias j='echo "
@@ -153,7 +199,7 @@ if [[ $PLATFORM == "osx" ]]; then
        js = /opt/cbmx/lib/python2.7/site-packages
      "'
      alias jc='cd /opt/cbmx'
-     alias jf='cd ~/p/fastai/nbs'
+     alias jf='cd ~/p/fastai/work'
      alias jn='cd ~/p/nike/core/nike'
      alias jp='cd ~/p/platform'
      alias js='cd /opt/cbmx/lib/python2.7/site-packages/'
@@ -190,21 +236,14 @@ else
     # Jump to directory, for speed matters
     alias j='echo "
        Jump to:
-       jf = fastai/nbs
-       jn = nike/core/nike
-       jp = platform/
-       js = /opt/cbmx/lib/python2.7/site-packages
-     "'
-    alias j='echo "
-       Jump to:
-       jh = ~
        jf = fastai
+       jh = ~
        js = site-packages/
        jw = fastai/work
      "'
-     alias jf='cd ~/fast3'
-     alias jw='cd ~/fast3/work'
-     alias js='cd $CONDAPATH/../envs/fast3/lib/python3.6/site-packages'
+     alias jf='cd ~/fastai'
      alias jh='cd ~'
+     alias js='cd $CONDAPATH/../envs/fast3/lib/python3.6/site-packages'
+     alias jw='cd ~/fastai/work'
 
 fi
