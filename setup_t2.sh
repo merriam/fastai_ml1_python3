@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# FastAI for Python 2.7
-# export imageId=ami-f8fd5998
-# Raw Ubuntu
-export imageId=ami-790ec601
+
+AMI_FASTAI_PYTHON_2_7=ami-f8fd5998
+AMI_UBUNTU_16_04_LTS_WITH_ANACONDA=ami-d68b40ae
+# Verified at https://docs.anaconda.com/anaconda/user-guide/tasks/integration/amazon-aws
+AMI=$AMI_UBUNTU_16_04_LTS_WITH_ANACONDA
+
 
 export vpcId=`aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --output text`
 aws ec2 modify-vpc-attribute --vpc-id $vpcId --enable-dns-support "{\"Value\":true}"
@@ -19,7 +21,7 @@ aws ec2 authorize-security-group-ingress --group-id $securityGroupId --protocol 
 aws ec2 create-key-pair --key-name aws-key --query 'KeyMaterial' --output text > ~/.ssh/aws-key.pem
 chmod 400 ~/.ssh/aws-key.pem
 
-export instanceId=`aws ec2 run-instances --image-id $imageId --count 1 --instance-type t2.micro --key-name aws-key --security-group-ids $securityGroupId --subnet-id $subnetId --associate-public-ip-address --block-device-mapping "[ { \"DeviceName\": \"/dev/sda1\", \"Ebs\": { \"VolumeSize\": 128, \"VolumeType\": \"gp2\" } } ]" --query 'Instances[0].InstanceId' --output text`
+export instanceId=`aws ec2 run-instances --image-id $AMI --count 1 --instance-type t2.micro --key-name aws-key --security-group-ids $securityGroupId --subnet-id $subnetId --associate-public-ip-address --block-device-mapping "[ { \"DeviceName\": \"/dev/sda1\", \"Ebs\": { \"VolumeSize\": 128, \"VolumeType\": \"gp2\" } } ]" --query 'Instances[0].InstanceId' --output text`
 export allocAddr=`aws ec2 allocate-address --domain vpc --query 'AllocationId' --output text`
 
 echo Waiting for instance start...
@@ -31,4 +33,18 @@ echo securityGroupId=$securityGroupId
 echo subnetId=$subnetId
 echo instanceId=$instanceId
 echo instanceUrl=$instanceUrl
-echo Connect: ssh -i ~/.ssh/aws-key.pem ubuntu@$instanceUrl
+message="
+New T2 Instance Started \n
+----------------------- \n
+vpcId=$vpcId \n
+securityGroupId=$securityGroupId \n
+subnetId=$subnetId \n
+instanceId=$instanceId \n
+instanceUrl=$instanceUrl \n
+Connect with: ssh -i ~/.ssh/aws-key.pem ubuntu@$instanceUrl \n
+"
+echo $message
+echo $message >> notes
+scp -i ~/.ssh/aws-key.pem setup_instance.sh ubuntu@$instanceUrl:.
+
+
